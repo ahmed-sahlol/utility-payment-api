@@ -181,6 +181,24 @@ describe('GET /payments/:id', () => {
         expect(response.status).toBe(500);
         expect(response.body).toEqual({message: 'db error'});
     });
+
+    test('should not allow a user to read another user payment', async () => {
+        pool.query.mockResolvedValueOnce({ rows: [] });
+
+        const response = await auth(
+            request(app).get(`/payments/${paymentId}`),
+            otherToken
+        );
+
+        expect(response.status).toBe(404);
+        expect(response.body.message).toBe('Payment not found');
+
+        expect(pool.query).toHaveBeenCalledWith(
+            expect.stringContaining('user_id =$2'),
+            [paymentId, otherUserId]
+        );
+    });
+
 });
 
 describe('PATCH /payments/:id', () => {

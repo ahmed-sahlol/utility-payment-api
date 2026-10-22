@@ -1,4 +1,7 @@
+require('dotenv').config();
+if (!process.env.JWT_SECRET) throw new Error('JWT_SECRET is required');
 const app = require('./app');
-app.listen(3000, () => {
-    console.log("Serever is start");
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
 });
