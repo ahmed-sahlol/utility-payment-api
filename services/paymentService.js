@@ -1,32 +1,34 @@
 const pool = require('../db');
 
 const createPayment = async (payment) => {
-    const {id, customerName, amount, billType} = payment;
-    await pool.query(`INSERT INTO payments (id, customer_name, amount, bill_type)
-                      VALUES ($1, $2, $3, $4)`, [id, customerName, amount, billType]);
+    const {id, customerName, amount, billType, userId} = payment;
+    await pool.query(`INSERT INTO payments (id, customer_name, amount, bill_type, user_id)
+                      VALUES ($1, $2, $3, $4, $5)`, [id, customerName, amount, billType, userId]);
     return {paymentId: id, customerName, amount, billType};
 };
 
-const getAllPayments = async () => {
-    const result = await pool.query('SELECT * FROM payments ORDER BY created_at DESC');
+
+const getAllPayments = async (userId) => {
+    const result = await pool.query('SELECT * FROM payments WHERE user_id = $1 ORDER BY created_at DESC', [userId]);
     return result.rows;
 };
 
-const getPaymentById = async (id) => {
-    const result = await pool.query('SELECT * FROM payments WHERE id = $1', [id]);
+const getPaymentById = async (id, userId) => {
+    const result = await pool.query('SELECT * FROM payments WHERE id = $1 AND user_id =$2', [id, userId]);
     return result.rows[0] ?? null;
 };
 
 
-const updatePayment = async (id, amount, billType) => {
+const updatePayment = async (id, amount, billType, userId) => {
     const update = await pool.query(`UPDATE payments
                                      SET amount    = COALESCE($1, amount),
                                          bill_type = COALESCE($2, bill_type)
                                      WHERE id = $3
-                                       AND status = 'pending' RETURNING *`, [amount ?? null, billType ?? null, id]);
+                                       AND user_id = $4
+                                       AND status = 'pending' RETURNING *`, [amount ?? null, billType ?? null, id, userId]);
 
     if (update.rows.length > 0) return {type: 'updated', payment: update.rows[0]};
-    const result = await pool.query('SELECT id, status FROM payments WHERE id = $1', [id]);
+    const result = await pool.query('SELECT id, status FROM payments WHERE id = $1 AND user_id =$2 ', [id, userId]);
 
     if (result.rows.length === 0) return {type: 'not_found'};
     return {type: 'not_pending'};

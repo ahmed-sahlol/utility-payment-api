@@ -20,7 +20,8 @@ const createPayment = async (req, res) => {
     const id = crypto.randomUUID();
 
     try {
-        const payment = await paymentService.createPayment({id, customerName, amount, billType});
+        const userId = req.user.id;
+        const payment = await paymentService.createPayment({id, customerName, amount, billType, userId});
         return res.status(201).json(payment);
     } catch (error) {
         console.error('Failed to create payment:', error.message);
@@ -30,7 +31,7 @@ const createPayment = async (req, res) => {
 
 const getAllPayments = async (req, res) => {
     try {
-        const payments = await paymentService.getAllPayments();
+        const payments = await paymentService.getAllPayments(req.user.id);
         return res.status(200).json(payments);
     } catch (error) {
         console.error('Failed to fetch payments:', error.message);
@@ -44,7 +45,7 @@ const getPaymentById = async (req, res) => {
         if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id_user)) {
             return res.status(400).json({message: 'Invalid payment ID'});
         }
-        const payment = await paymentService.getPaymentById(id_user)
+        const payment = await paymentService.getPaymentById(id_user, req.user.id);
         if (!payment) return res.status(404).json({message: 'Payment not found'});
         return res.status(200).json(payment);
     } catch (error) {
@@ -59,15 +60,14 @@ const updatePayment = async (req, res) => {
         let billType = req.body.billType;
         let amount = req.body.amount;
 
-        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id_user))
-            return res.status(400).json({message: 'Invalid payment ID'});
+        if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id_user)) return res.status(400).json({message: 'Invalid payment ID'});
 
         if (amount === undefined && billType === undefined) return res.status(400).json({message: 'No fields to update'});
         if ((amount !== undefined && (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0))) return res.status(400).json({message: 'Invalid amount'});
 
         const allowedBillTypes = ['electricity', 'water', 'gas'];
         if (billType !== undefined && !allowedBillTypes.includes(billType)) return res.status(400).json({message: 'Invalid bill type'});
-        const result = await paymentService.updatePayment(id_user, amount, billType);
+        const result = await paymentService.updatePayment(id_user, amount, billType, req.user.id);
         if (result.type === 'not_found') return res.status(404).json({message: 'Payment not found'});
         if (result.type === 'not_pending') return res.status(409).json({message: 'Cannot update a payment that is not pending'});
         return res.status(200).json(result.payment);
