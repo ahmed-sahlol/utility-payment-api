@@ -1,41 +1,27 @@
 # Utility Payment API
 
-A RESTful API built with Node.js, Express, and PostgreSQL for user authentication and utility payment management.
-
-The API supports user registration, login, JWT-based authentication, and secure payment operations.
+A RESTful backend API for user authentication and utility payment management, built with Node.js, Express, and
+PostgreSQL.
 
 ## Features
 
 - User registration and login
-- Password hashing with bcrypt
 - JWT-based authentication
 - Protected payment endpoints
-- Create and retrieve payments
-- Retrieve payments by ID
-- Update pending payments
-- Restrict payment access to the authenticated owner
-- PostgreSQL database integration
-- Automated tests using Jest and Supertest
+- PostgreSQL persistence
+- User-level payment access control
+- Payment validation and status handling
+- Unit and integration testing with Jest and Supertest
+- Test database safety checks
 
 ## Tech Stack
 
-- **Node.js** — JavaScript runtime
-- **Express.js** — Web framework
-- **PostgreSQL** — Relational database
-- **node-postgres (`pg`)** — PostgreSQL client
-- **bcrypt** — Password hashing
-- **jsonwebtoken** — JWT creation and verification
-- **dotenv** — Environment variable management
-- **Jest** — Testing framework
-- **Supertest** — HTTP endpoint testing
-
-## Prerequisites
-
-Make sure you have installed:
-
-- Node.js and npm
-- PostgreSQL
-- Git
+- **Runtime:** Node.js
+- **Framework:** Express.js
+- **Database:** PostgreSQL
+- **Authentication:** JSON Web Tokens (JWT)
+- **Testing:** Jest and Supertest
+- **Database Driver:** `pg`
 
 ## Getting Started
 
@@ -61,252 +47,109 @@ PORT=3000
 
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=your_database_name
+DB_NAME=utility_payment
 DB_USER=your_database_user
 DB_PASSWORD=your_database_password
 
-JWT_SECRET=replace_with_a_long_random_secret
+JWT_SECRET=your_long_random_secret
+
+TEST_DB_NAME=utility_payment_test
 ```
 
-Replace the database values with your PostgreSQL credentials. Set `JWT_SECRET` to a long, random, private value.
+Replace the example database credentials and JWT secret with your own values.
 
-**Security:** Never commit your `.env` file or expose your database password or JWT secret. The `.env` file should remain excluded by `.gitignore`.
+**Security:** Never commit `.env` or real credentials to GitHub. Use a separate PostgreSQL database for integration
+tests.
 
 ### 4. Set up PostgreSQL
 
-Create a PostgreSQL database and configure the connection variables in `.env`.
+Create the application database and configure the required tables and constraints according to the project's database
+schema.
 
-The database must contain the `users` and `payments` tables described in the Database Schema section below.
+The main entities are:
 
-The application expects the required tables and columns to exist. This repository currently does not include a `.sql` file for creating the schema.
+- **Users:** Stores user information and password hashes.
+- **Payments:** Stores payment details, status, bill type, timestamps, and the associated user ID.
+
+Passwords should be stored as hashes, not as plain text.
 
 ### 5. Start the server
 
 ```bash
-node server.js
+npm start
 ```
 
-By default, the server uses port `3000`, unless another port is configured through `PORT`.
-
-When the server starts successfully, it prints a message similar to:
-
-```text
-Server running on port 3000
-```
+The API runs on port `3000` by default, unless configured otherwise.
 
 ## API Endpoints
 
-Base URL:
+| Method | Endpoint         | Description                 | Authentication |
+|--------|------------------|-----------------------------|----------------|
+| GET    | `/health`        | Check API health            | No             |
+| POST   | `/auth/register` | Register a new user         | No             |
+| POST   | `/auth/login`    | Log in and obtain a JWT     | No             |
+| POST   | `/payments`      | Create a payment            | Yes            |
+| GET    | `/payments`      | Retrieve payments           | Yes            |
+| GET    | `/payments/:id`  | Retrieve a specific payment | Yes            |
+| PATCH  | `/payments/:id`  | Update an eligible payment  | Yes            |
 
-```text
-http://localhost:3000
-```
-
-### Health Check
-
-| Method | Endpoint | Authentication |
-|---|---|---|
-| GET | `/health` | Not required |
-
-Checks whether the API is running.
-
-Example response:
-
-```json
-{
-  "status": "ok",
-  "message": "Utility Payment API is running"
-}
-```
-
-### Authentication
-
-| Method | Endpoint | Authentication |
-|---|---|---|
-| POST | `/auth/register` | Not required |
-| POST | `/auth/login` | Not required |
-
-#### Register a user
-
-`POST /auth/register`
-
-Example request:
-
-```json
-{
-  "name": "Ahmed",
-  "email": "ahmed@example.com",
-  "password": "your_password"
-}
-```
-
-The password is hashed using bcrypt before being stored in the database.
-
-#### Log in
-
-`POST /auth/login`
-
-Example request:
-
-```json
-{
-  "email": "ahmed@example.com",
-  "password": "your_password"
-}
-```
-
-A successful login returns a JWT access token. Tokens expire after one hour.
-
-Use the returned token to access protected endpoints.
-
-### Payments
-
-All payment endpoints require a valid JWT access token.
-
-Include this HTTP header in your requests:
+Authenticated endpoints require a JWT in the request header:
 
 ```http
-Authorization: Bearer YOUR_JWT_TOKEN
+Authorization: Bearer <your_jwt_token>
 ```
 
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/payments` | Create a payment |
-| GET | `/payments` | Retrieve the authenticated user's payments |
-| GET | `/payments/:id` | Retrieve a payment by ID |
-| PATCH | `/payments/:id` | Update a pending payment |
+Payment access is restricted by user ownership. Requests for another user's payment should not expose that payment's
+data.
 
-#### Create a payment
+## Testing
 
-`POST /payments`
-
-Example request:
-
-```json
-{
-  "customerName": "Ahmed",
-  "amount": 250,
-  "billType": "electricity"
-}
-```
-
-The payment is associated with the authenticated user.
-
-#### Retrieve payments
-
-`GET /payments`
-
-Returns payments belonging to the authenticated user.
-
-#### Retrieve a payment by ID
-
-`GET /payments/:id`
-
-Returns the requested payment only if it belongs to the authenticated user.
-
-#### Update a payment
-
-`PATCH /payments/:id`
-
-Updates supported payment fields, such as `amount` and `billType`, according to the current controller validation.
-
-Only payments with a `pending` status can be updated. A user cannot update another user's payment through these endpoints.
-
-## Database Schema
-
-The API uses PostgreSQL with two tables: `users` and `payments`.
-
-The following columns and types reflect the current database schema.
-
-### `users`
-
-| Column | Type | Nullable |
-|---|---|---|
-| `id` | UUID | No |
-| `name` | VARCHAR | No |
-| `email` | VARCHAR | No |
-| `password_hash` | TEXT | No |
-| `created_at` | TIMESTAMPTZ | No |
-
-### `payments`
-
-| Column | Type | Nullable |
-|---|---|---|
-| `id` | UUID | No |
-| `customer_name` | VARCHAR | No |
-| `amount` | NUMERIC | No |
-| `status` | TEXT | No |
-| `created_at` | TIMESTAMPTZ | No |
-| `bill_type` | VARCHAR | No |
-| `user_id` | UUID | Yes |
-
-### Database notes
-
-- User passwords are stored as bcrypt hashes, not plain text.
-- The API filters payment queries by the authenticated user's ID.
-- The current database schema allows `payments.user_id` to be `NULL`.
-- Consider adding a foreign key from `payments.user_id` to `users.id` and making `user_id` `NOT NULL` after checking existing data and constraints.
-- Consider enforcing email uniqueness with a database constraint.
-
-## Running Tests
-
-Run the automated test suite:
+Run the test suite:
 
 ```bash
 npm test
 ```
 
-The current test suite covers authentication, authentication services, payment operations, authorization, validation, and error handling.
+The test suite uses Jest and Supertest to test API behavior. Integration tests use PostgreSQL and should run only
+against the dedicated test database.
 
-The latest recorded test run passed **38 tests across 3 test suites**.
+Before running integration tests, ensure that `TEST_DB_NAME` is set to:
+
+```env
+TEST_DB_NAME=utility_payment_test
+```
+
+The test suite includes authentication, payment operations, access-control checks, and database integration tests.
 
 ## Project Structure
 
 ```text
 utility-payment-api/
 ├── controllers/
-│   ├── authController.js
-│   └── paymentController.js
 ├── middleware/
-│   └── authMiddleware.js
 ├── routes/
-│   ├── authRoutes.js
-│   └── paymentRoutes.js
 ├── services/
-│   ├── authService.js
-│   └── paymentService.js
 ├── app.js
 ├── server.js
 ├── db.js
 ├── app.test.js
 ├── auth.test.js
 ├── authService.test.js
+├── integration.test.js
+├── test-db-integration.js
 ├── package.json
-├── package-lock.json
-├── .gitignore
 └── README.md
 ```
 
-## Security Considerations
+## Security Notes
 
-- Keep secrets in environment variables.
-- Never commit `.env` or other files containing credentials.
-- Use HTTPS when deploying the API.
-- Use a strong, randomly generated JWT secret.
-- Keep dependencies updated.
-- Enforce database constraints for data integrity.
-- Consider rate limiting authentication endpoints in production.
-
-## Future Improvements
-
-- Add database migrations and a schema setup script.
-- Add integration tests against a real PostgreSQL database.
-- Improve database constraints and indexes.
-- Add pagination for payment listings.
-- Introduce centralized error handling and structured logging.
-- Add API documentation using OpenAPI/Swagger.
-- Add rate limiting and production deployment configuration.
+- Keep secrets and database credentials in environment variables.
+- Never commit `.env` to version control.
+- Use JWT authentication for protected routes.
+- Validate incoming request data.
+- Restrict payment access to the owning user.
+- Keep test data isolated from production data.
 
 ## License
 
-This project is licensed under the ISC License.
+No license has been specified yet.
