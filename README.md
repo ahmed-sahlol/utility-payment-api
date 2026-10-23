@@ -1,44 +1,51 @@
 # Utility Payment API
 
-A RESTful backend API for user authentication and utility payment management, built with Node.js, Express, and
-PostgreSQL.
+A RESTful API built with Node.js, Express.js, and PostgreSQL for managing utility bill payments.
 
 ## Features
 
-- User registration and login
-- JWT-based authentication
-- Protected payment endpoints
-- PostgreSQL persistence
-- User-level payment access control
-- Payment validation and status handling
-- Unit and integration testing with Jest and Supertest
-- Test database safety checks
+- User authentication with JWT.
+- PostgreSQL database integration.
+- Create and retrieve utility payments.
+- Retrieve a payment by its ID.
+- Update pending payments.
+- Validate payment amounts and bill types.
+- Restrict payment access to the authenticated owner.
+- Automated tests using Jest and Supertest.
 
 ## Tech Stack
 
-- **Runtime:** Node.js
-- **Framework:** Express.js
-- **Database:** PostgreSQL
-- **Authentication:** JSON Web Tokens (JWT)
-- **Testing:** Jest and Supertest
-- **Database Driver:** `pg`
+- **Node.js** — JavaScript runtime.
+- **Express.js** — REST API framework.
+- **PostgreSQL** — Relational database.
+- **JWT** — Authentication.
+- **Jest** — Testing framework.
+- **Supertest** — HTTP endpoint testing.
 
 ## Getting Started
 
-### 1. Clone the repository
+### Prerequisites
+
+Install the following before running the project:
+
+- Node.js
+- PostgreSQL
+- npm
+
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/ahmed-sahlol/utility-payment-api.git
 cd utility-payment-api
 ```
 
-### 2. Install dependencies
+### 2. Install Dependencies
 
 ```bash
 npm install
 ```
 
-### 3. Configure environment variables
+### 3. Configure Environment Variables
 
 Create a `.env` file in the project root:
 
@@ -56,100 +63,255 @@ JWT_SECRET=your_long_random_secret
 TEST_DB_NAME=utility_payment_test
 ```
 
-Replace the example database credentials and JWT secret with your own values.
+Replace the database credentials and secret with your own values. Make sure the database names match your local PostgreSQL configuration.
 
-**Security:** Never commit `.env` or real credentials to GitHub. Use a separate PostgreSQL database for integration
-tests.
+**Security:** Never commit your `.env` file or real credentials to GitHub.
 
-### 4. Set up PostgreSQL
+### 4. Start the Server
 
-Create the application database and configure the required tables and constraints according to the project's database
-schema.
-
-The main entities are:
-
-- **Users:** Stores user information and password hashes.
-- **Payments:** Stores payment details, status, bill type, timestamps, and the associated user ID.
-
-Passwords should be stored as hashes, not as plain text.
-
-### 5. Start the server
+Use the start script configured in `package.json`:
 
 ```bash
 npm start
 ```
 
-The API runs on port `3000` by default, unless configured otherwise.
+If your project does not define a start script, check `package.json` and use the appropriate server entry point.
+
+The API will typically be available at:
+
+```text
+http://localhost:3000
+```
 
 ## API Endpoints
 
-| Method | Endpoint         | Description                 | Authentication |
-|--------|------------------|-----------------------------|----------------|
-| GET    | `/health`        | Check API health            | No             |
-| POST   | `/auth/register` | Register a new user         | No             |
-| POST   | `/auth/login`    | Log in and obtain a JWT     | No             |
-| POST   | `/payments`      | Create a payment            | Yes            |
-| GET    | `/payments`      | Retrieve payments           | Yes            |
-| GET    | `/payments/:id`  | Retrieve a specific payment | Yes            |
-| PATCH  | `/payments/:id`  | Update an eligible payment  | Yes            |
+The payment endpoints require authentication using a JWT.
 
-Authenticated endpoints require a JWT in the request header:
+| Method | Endpoint | Description | Authentication |
+|---|---|---|---|
+| GET | `/health` | Check API health | Verify in your app configuration |
+| POST | `/auth/register` | Register a user | No, if configured as a public route |
+| POST | `/auth/login` | Log in and obtain a token | No, if configured as a public route |
+| POST | `/payments` | Create a payment | Required |
+| GET | `/payments` | Get the current user's payments | Required |
+| GET | `/payments/:id` | Get a payment by ID | Required |
+| PATCH | `/payments/:id` | Update a pending payment | Required |
+
+The authentication endpoint paths and health-check configuration should match the routes mounted in `app.js`.
+
+## Authentication
+
+After logging in, copy the JWT returned by the API.
+
+Include it in the `Authorization` header for protected requests:
 
 ```http
 Authorization: Bearer <your_jwt_token>
 ```
 
-Payment access is restricted by user ownership. Requests for another user's payment should not expose that payment's
-data.
+Replace `<your_jwt_token>` with your actual token.
 
-## Testing
+## Payments API Examples
 
-Run the test suite:
+Base URL:
+
+```text
+http://localhost:3000
+```
+
+### 1. Create a Payment
+
+**POST** `/payments`
+
+Headers:
+
+```http
+Content-Type: application/json
+Authorization: Bearer <your_jwt_token>
+```
+
+Request body:
+
+```json
+{
+  "billType": "electricity",
+  "amount": 250
+}
+```
+
+Successful response — `201 Created`:
+
+```json
+{
+  "paymentId": "generated-payment-uuid",
+  "amount": 250,
+  "billType": "electricity",
+  "status": "pending"
+}
+```
+
+The payment ID is generated by the server.
+
+Supported bill types:
+
+- `electricity`
+- `water`
+- `gas`
+
+The amount must be a finite, positive number.
+
+Example validation errors:
+
+```json
+{
+  "message": "invalid data"
+}
+```
+
+```json
+{
+  "message": "Invalid bill type"
+}
+```
+
+### 2. Get All Payments
+
+**GET** `/payments`
+
+Headers:
+
+```http
+Authorization: Bearer <your_jwt_token>
+```
+
+Returns the authenticated user's payments, ordered by creation date, newest first.
+
+The response is an array. Its exact fields depend on the columns returned by the `payments` table.
+
+### 3. Get a Payment by ID
+
+**GET** `/payments/:id`
+
+Example:
+
+```text
+GET /payments/your-payment-uuid
+```
+
+Possible responses:
+
+- `200 OK` — Payment found.
+- `400 Bad Request` — Invalid payment ID.
+- `404 Not Found` — Payment not found or not owned by the authenticated user.
+- `500 Internal Server Error` — Database error.
+
+### 4. Update a Payment
+
+**PATCH** `/payments/:id`
+
+Headers:
+
+```http
+Content-Type: application/json
+Authorization: Bearer <your_jwt_token>
+```
+
+Update the amount:
+
+```json
+{
+  "amount": 300
+}
+```
+
+Update the bill type:
+
+```json
+{
+  "billType": "water"
+}
+```
+
+Update both fields:
+
+```json
+{
+  "amount": 300,
+  "billType": "water"
+}
+```
+
+Possible responses:
+
+- `200 OK` — Payment updated.
+- `400 Bad Request` — Invalid payment ID, amount, bill type, or no fields to update.
+- `404 Not Found` — Payment not found.
+- `409 Conflict` — Payment cannot be updated because its status is not `pending`.
+- `500 Internal Server Error` — Database error.
+
+Only the authenticated user's payments can be updated. Payments can only be updated while their status is `pending`.
+
+## Validation Rules
+
+### Creating Payments
+
+- `billType` is required and must be a string.
+- `amount` is required and must be a number.
+- `amount` must be finite and greater than zero.
+- `billType` must be `electricity`, `water`, or `gas`.
+
+### Updating Payments
+
+- The payment ID must be a valid UUID.
+- At least one of `amount` or `billType` must be provided.
+- If provided, `amount` must be a finite, positive number.
+- If provided, `billType` must be one of the supported bill types.
+- Only payments with `pending` status can be updated.
+
+## Running Tests
+
+Run the test command defined in `package.json`:
 
 ```bash
 npm test
 ```
 
-The test suite uses Jest and Supertest to test API behavior. Integration tests use PostgreSQL and should run only
-against the dedicated test database.
+The project includes unit and integration tests using Jest and Supertest. Integration tests require a properly configured test database.
 
-Before running integration tests, ensure that `TEST_DB_NAME` is set to:
-
-```env
-TEST_DB_NAME=utility_payment_test
-```
-
-The test suite includes authentication, payment operations, access-control checks, and database integration tests.
+**Important:** Use a separate test database to avoid modifying real application data.
 
 ## Project Structure
 
 ```text
 utility-payment-api/
 ├── controllers/
+│   └── paymentController.js
 ├── middleware/
+│   └── authMiddleware.js
 ├── routes/
+│   └── paymentRoutes.js
 ├── services/
+│   └── paymentService.js
 ├── app.js
 ├── server.js
 ├── db.js
-├── app.test.js
-├── auth.test.js
-├── authService.test.js
-├── integration.test.js
-├── test-db-integration.js
 ├── package.json
+├── .env
 └── README.md
 ```
 
-## Security Notes
+This is a representative structure. The exact files may differ depending on the current project version.
 
-- Keep secrets and database credentials in environment variables.
-- Never commit `.env` to version control.
-- Use JWT authentication for protected routes.
-- Validate incoming request data.
-- Restrict payment access to the owning user.
-- Keep test data isolated from production data.
+## Future Improvements
 
-## License
+- Add pagination and filtering for payments.
+- Improve centralized error handling.
+- Add API documentation using Swagger/OpenAPI.
+- Add rate limiting and security hardening.
+- Expand test coverage.
 
-No license has been specified yet.
+## Author
+
+**Ahmed Mostafa**
+
+GitHub: [ahmed-sahlol](https://github.com/ahmed-sahlol)

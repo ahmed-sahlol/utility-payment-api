@@ -116,6 +116,6 @@ describe('Payments API - PostgreSQL integration', () => {
         const missingPaymentResponse = await request(app)
             .get(`/payments/${missingPaymentId}`)
             .set('Authorization', `Bearer ${secondToken}`);
-
+        expect(missingPaymentResponse.status).toBe(404);
     });
 });
