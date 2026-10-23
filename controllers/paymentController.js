@@ -2,13 +2,17 @@ const crypto = require('crypto');
 const paymentService = require('../services/paymentService');
 
 const createPayment = async (req, res) => {
-    if (req.body.customerName === undefined || req.body.billType === undefined || req.body.amount === undefined || typeof req.body.customerName !== "string" || typeof req.body.billType !== "string" || typeof req.body.amount !== "number") return res.status(400).json({message: 'invalid data'});
+    if (
+        req.body.billType === undefined ||
+        req.body.amount === undefined ||
+        typeof req.body.billType !== "string" ||
+        typeof req.body.amount !== "number")
+        return res.status(400).json({message: 'invalid data'});
 
-    const customerName = req.body.customerName.trim();
     const amount = req.body.amount;
     const billType = req.body.billType;
 
-    if (customerName.length === 0 || !Number.isFinite(amount) || amount <= 0) return res.status(400).json({message: 'invalid data'});
+    if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({message: 'invalid data'});
 
     const allowedBillTypes = ['electricity', 'water', 'gas'];
     if (!allowedBillTypes.includes(billType)) {
@@ -21,7 +25,7 @@ const createPayment = async (req, res) => {
 
     try {
         const userId = req.user.id;
-        const payment = await paymentService.createPayment({id, customerName, amount, billType, userId});
+        const payment = await paymentService.createPayment({id, amount, billType, userId});
         return res.status(201).json(payment);
     } catch (error) {
         console.error('Failed to create payment:', error.message);

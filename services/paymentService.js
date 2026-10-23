@@ -1,10 +1,10 @@
 const pool = require('../db');
 
 const createPayment = async (payment) => {
-    const {id, customerName, amount, billType, userId} = payment;
-    await pool.query(`INSERT INTO payments (id, customer_name, amount, bill_type, user_id)
-                      VALUES ($1, $2, $3, $4, $5)`, [id, customerName, amount, billType, userId]);
-    return {paymentId: id, customerName, amount, billType};
+    const {id, amount, billType, userId} = payment;
+    const result = await pool.query(`INSERT INTO payments (id, amount, bill_type, user_id)
+                                     VALUES ($1, $2, $3, $4) RETURNING *`, [id, amount, billType, userId]);
+    return {paymentId: id, amount, billType, status: result.rows[0].status};
 };
 
 
