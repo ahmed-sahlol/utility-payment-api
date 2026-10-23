@@ -9,9 +9,14 @@ const createUser = async (user) => {
 
     try {
         const hashed = await bcrypt.hash(password, 12);
-        const new_user = await pool.query('INSERT INTO users (id,name,email,password_hash)VALUES ($1,$2,$3,$4) ' + 'RETURNING id, name, email, created_at', [id, name, email, hashed]);
+        const new_user = await pool.query(`INSERT INTO users (id, name, email, password_hash)
+                                           VALUES ($1, $2, $3,
+                                                   $4)RETURNING id, name, email, created_at`, [id, name, email, hashed]);
         return {type: 'created', user: new_user.rows[0]};
     } catch (error) {
+        if (error.code === '23505' && error.constraint === 'users_email_unique') {
+            return {type: 'email_exists'};
+        }
         throw error;
     }
 };
@@ -25,9 +30,7 @@ const loginUser = async (user) => {
 
     const token = jwt.sign({sub: check.rows[0].id}, process.env.JWT_SECRET, {expiresIn: '1h'});
     return {
-        type: 'authenticated',
-        user: {id: check.rows[0].id, name: check.rows[0].name, email: check.rows[0].email},
-        token
+        type: 'authenticated', user: {id: check.rows[0].id, name: check.rows[0].name, email: check.rows[0].email}, token
     };
 };
 

@@ -27,6 +27,10 @@ describe('Auth API Tests', () => {
         expect(response.body).toHaveProperty('id', 'user-123');
         expect(response.body).toHaveProperty('email', 'ahmed@example.com');
 
+        // Sensitive information must not be returned
+        expect(response.body).not.toHaveProperty('password');
+        expect(response.body).not.toHaveProperty('password_hash');
+
         expect(authService.createUser).toHaveBeenCalledWith(expect.objectContaining({
             name: 'Ahmed', email: 'ahmed@example.com', password: 'StrongPass123'
         }));
@@ -41,7 +45,9 @@ describe('Auth API Tests', () => {
             });
 
         expect(response.status).toBe(400);
-        expect(response.body).toEqual({message: 'Invalid data'});
+        expect(response.body).toEqual({
+            message: 'Invalid data'
+        });
         expect(authService.createUser).not.toHaveBeenCalled();
     });
 
@@ -127,6 +133,9 @@ describe('Auth API Tests', () => {
         });
         expect(response.body.token).toBe('test.jwt.token');
 
+        expect(response.body.user).not.toHaveProperty('password');
+        expect(response.body.user).not.toHaveProperty('password_hash');
+
         expect(authService.loginUser).toHaveBeenCalledWith({
             email: 'ahmed@example.com', password: 'StrongPass123'
         });
@@ -141,7 +150,9 @@ describe('Auth API Tests', () => {
             });
 
         expect(response.status).toBe(400);
-        expect(response.body).toEqual({message: 'Invalid data'});
+        expect(response.body).toEqual({
+            message: 'Invalid data'
+        });
         expect(authService.loginUser).not.toHaveBeenCalled();
     });
 
