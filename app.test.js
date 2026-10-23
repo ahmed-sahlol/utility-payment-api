@@ -9,7 +9,20 @@ jest.mock('./db', () => ({
 
 const app = require('./app');
 const pool = require('./db');
+let consoleErrorSpy;
 
+beforeEach(() => {
+    pool.query.mockReset();
+
+    consoleErrorSpy = jest
+        .spyOn(console, 'error')
+        .mockImplementation(() => {
+        });
+});
+
+afterEach(() => {
+    consoleErrorSpy.mockRestore();
+});
 const userId = '00000000-0000-4000-8000-000000000010';
 const otherUserId = '00000000-0000-4000-8000-000000000020';
 const paymentId = '00000000-0000-4000-8000-000000000001';

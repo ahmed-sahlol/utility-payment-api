@@ -239,9 +239,10 @@ const is_auth = require('../middleware/authMiddleware');
  *           example: Payment not found
  */
 
-router.post('/', is_auth, paymentController.createPayment);
 router.get('/', is_auth, paymentController.getAllPayments);
 router.get('/:id', is_auth, paymentController.getPaymentById);
+router.post('/', is_auth, paymentController.createPayment);
+router.post('/:id/process', is_auth, paymentController.processPayment);
 router.patch('/:id', is_auth, paymentController.updatePayment);
 
 module.exports = router;

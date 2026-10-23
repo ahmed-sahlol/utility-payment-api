@@ -80,4 +80,28 @@ const updatePayment = async (req, res) => {
     }
 };
 
-module.exports = {createPayment, getAllPayments, getPaymentById, updatePayment};
+const processPayment = async (req, res) => {
+    const id = req.params.id;
+    const userId = req.user.id;
+
+    try {
+        const startResult = await paymentService.startPaymentProcessing(id, userId);
+
+        if (startResult.type === 'not_found') return res.status(404).json({message: 'Payment not found'});
+        if (startResult.type === 'not_pending') return res.status(409).json({message: 'Payment cannot be processed in its current status'});
+
+        const newStatus = paymentService.simulatePaymentResult();
+        const finishResult = await paymentService.finishPaymentProcessing(id, userId, newStatus);
+
+        if (finishResult.type === 'not_processing') return res.status(409).json({message: 'Payment is no longer processing'});
+
+        return res.status(200).json({
+            message: 'Payment processing completed', payment: finishResult.payment
+        });
+    } catch (error) {
+        console.error('Error processing payment:', error);
+        return res.status(500).json({message: 'Internal server error'});
+    }
+};
+
+module.exports = {createPayment, getAllPayments, getPaymentById, updatePayment, processPayment};

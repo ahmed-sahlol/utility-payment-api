@@ -34,4 +34,79 @@ const updatePayment = async (id, amount, billType, userId) => {
     return {type: 'not_pending'};
 };
 
-module.exports = {createPayment, getAllPayments, getPaymentById, updatePayment};
+const simulatePaymentResult = () => {
+    const randomNumber = Math.random();
+    if (randomNumber < 0.8) return 'successful';
+    return 'failed';
+};
+
+const finishPaymentProcessing = async (id, userId, newStatus) => {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+        const result = await client.query(`UPDATE payments
+                                           SET status = $1
+                                           WHERE id = $2
+                                             AND user_id = $3
+                                             AND status = 'processing' RETURNING *`, [newStatus, id, userId]);
+
+        if (result.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return {type: 'not_processing'};
+        }
+
+        await client.query(`INSERT INTO payment_status_history (payment_id, old_status, new_status)
+                            VALUES ($1, $2, $3)`, [id, 'processing', newStatus]);
+
+        await client.query('COMMIT');
+
+        return {type: 'finished', payment: result.rows[0]};
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
+};
+
+const startPaymentProcessing = async (id, userId) => {
+    const client = await pool.connect();
+
+    try {
+        await client.query('BEGIN');
+        const result = await client.query(`UPDATE payments
+                                           SET status = 'processing'
+                                           WHERE id = $1
+                                             AND user_id = $2
+                                             AND status = 'pending' RETURNING *`, [id, userId]);
+
+        if (result.rows.length === 0) {
+            await client.query('ROLLBACK');
+
+            const check = await pool.query('SELECT * FROM payments WHERE id = $1 AND user_id = $2', [id, userId]);
+
+            if (check.rows.length > 0) return {type: 'not_pending'};
+            return {type: 'not_found'};
+        }
+
+        await client.query(`INSERT INTO payment_status_history (payment_id, old_status, new_status)
+                            VALUES ($1, $2, $3)`, [id, 'pending', 'processing']);
+        await client.query('COMMIT');
+        return {type: 'started', payment: result.rows[0]};
+    } catch (error) {
+        await client.query('ROLLBACK');
+        throw error;
+    } finally {
+        client.release();
+    }
+};
+
+module.exports = {
+    createPayment,
+    getAllPayments,
+    getPaymentById,
+    updatePayment,
+    startPaymentProcessing,
+    finishPaymentProcessing,
+    simulatePaymentResult
+};
