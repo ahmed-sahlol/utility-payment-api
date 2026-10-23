@@ -260,6 +260,24 @@ describe('PATCH /payments/:id', () => {
         expect(response.status).toBe(409);
         expect(response.body.message).toBe('Cannot update a payment that is not pending',);
     });
+    test('should not allow updating a successful payment', async () => {
+        pool.query.mockResolvedValueOnce({
+            rows: [],
+        });
+
+        pool.query.mockResolvedValueOnce({
+            rows: [{
+                id: paymentId, status: 'successful',
+            }],
+        });
+
+        const response = await auth(request(app).patch(`/payments/${paymentId}`),).send({
+            amount: 200,
+        });
+        expect(response.status).toBe(409);
+        expect(response.body.message).toBe('Cannot update a payment that is not pending',);
+        expect(pool.query).toHaveBeenCalledTimes(2);
+    });
 
     test('should return 500 when database fails', async () => {
         pool.query.mockRejectedValueOnce(new Error('Database connection failed'),);
@@ -268,5 +286,33 @@ describe('PATCH /payments/:id', () => {
 
         expect(response.status).toBe(500);
         expect(response.body).toEqual({message: 'db error'});
+    });
+    test.each(['failed', 'cancelled'])('should not allow updating a %s payment', async (status) => {
+        pool.query
+            .mockResolvedValueOnce({rows: []})
+            .mockResolvedValueOnce({
+                rows: [{id: paymentId, status}],
+            });
+
+        const response = await auth(request(app).patch(`/payments/${paymentId}`),).send({amount: 200});
+
+        expect(response.status).toBe(409);
+        expect(response.body.message).toBe('Cannot update a payment that is not pending',);
+
+        expect(pool.query).toHaveBeenCalledTimes(2);
+    },);
+    test('should not allow a user to update another user payment', async () => {
+        pool.query
+            .mockResolvedValueOnce({rows: []})
+            .mockResolvedValueOnce({rows: []});
+
+        const response = await auth(request(app).patch(`/payments/${paymentId}`), otherToken,).send({amount: 900});
+
+        expect(response.status).toBe(404);
+        expect(response.body.message).toBe('Payment not found');
+
+        expect(pool.query).toHaveBeenNthCalledWith(1, expect.stringContaining('user_id = $4'), [900, null, paymentId, otherUserId],);
+
+        expect(pool.query).toHaveBeenNthCalledWith(2, expect.stringContaining('user_id =$2'), [paymentId, otherUserId],);
     });
 });

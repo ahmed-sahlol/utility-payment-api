@@ -9,7 +9,7 @@ module.exports = (req, res, next) => {
     const token = TOKEN[1];
     try {
         const check = jwt.verify(token, process.env.JWT_SECRET);
-        req.user = { id: check.sub };
+        req.user = {id: check.sub};
     } catch (error) {
         return res.status(401).json({
             message: 'Invalid or expired token'

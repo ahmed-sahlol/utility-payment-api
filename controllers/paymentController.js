@@ -2,12 +2,7 @@ const crypto = require('crypto');
 const paymentService = require('../services/paymentService');
 
 const createPayment = async (req, res) => {
-    if (
-        req.body.billType === undefined ||
-        req.body.amount === undefined ||
-        typeof req.body.billType !== "string" ||
-        typeof req.body.amount !== "number")
-        return res.status(400).json({message: 'invalid data'});
+    if (req.body.billType === undefined || req.body.amount === undefined || typeof req.body.billType !== "string" || typeof req.body.amount !== "number") return res.status(400).json({message: 'invalid data'});
 
     const amount = req.body.amount;
     const billType = req.body.billType;
