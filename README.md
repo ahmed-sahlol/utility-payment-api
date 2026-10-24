@@ -2,7 +2,7 @@
 
 A RESTful backend API for managing utility bill payments, built with Node.js, Express.js, and PostgreSQL.
 
-The API supports user authentication, payment management, input validation, and user-level access control.
+The project demonstrates backend engineering concepts including authentication, authorization, database transactions, payment lifecycle management, automated recovery, and automated testing.
 
 ## Features
 
@@ -11,11 +11,46 @@ The API supports user authentication, payment management, input validation, and 
 - JWT-based authentication.
 - Create, retrieve, and update utility payments.
 - User-level authorization to protect payment records.
-- Update payments only while their status is `pending`.
 - Input validation for payment amounts, bill types, and payment IDs.
 - PostgreSQL integration using parameterized queries.
+- Transactional payment status updates.
+- Payment status history for tracking state transitions.
+- Simulated payment processing with successful and failed outcomes.
+- Automatic recovery of eligible stale payments.
+- Concurrent recovery protection using PostgreSQL row locking.
 - API documentation with Swagger/OpenAPI.
-- Automated unit and integration tests using Jest and Supertest.
+- Unit and integration tests using Jest and Supertest.
+
+## Payment Lifecycle
+
+Payments follow this lifecycle:
+
+```text
+pending
+   |
+   v
+processing
+   |
+   +------> successful
+   |
+   +------> failed
+```
+
+When payment processing starts, the API saves the simulated result and changes the payment status to `processing` in a database transaction.
+
+Each status transition is recorded in `payment_status_history`. Transactions help keep payment updates and their corresponding history entries consistent.
+
+### Automatic Payment Recovery
+
+The server periodically checks for payments that have remained in `processing` for more than five minutes.
+
+- The recovery job runs when the server starts and then every minute.
+- Payments with a saved result of `successful` or `failed` can be recovered.
+- The recovery process updates the payment status and records the transition in the history table.
+- PostgreSQL row locking with `FOR UPDATE SKIP LOCKED` helps prevent concurrent recovery workers from processing the same row.
+- Payments without a valid saved result are left unchanged because their final outcome is unknown.
+
+This recovery mechanism demonstrates how a backend can handle interrupted payment processing without guessing the outcome of an uncertain payment.
 
 ## Tech Stack
 
@@ -61,7 +96,7 @@ PORT=3000
 
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=utility_payment
+DB_NAME=utility-payment-api
 DB_USER=your_database_user
 DB_PASSWORD=your_database_password
 
@@ -70,11 +105,11 @@ JWT_SECRET=your_long_random_secret
 TEST_DB_NAME=utility_payment_test
 ```
 
-Replace the database credentials and JWT secret with your own values.
+Use your own database credentials and a strong, private JWT secret. Configure the required database tables and constraints before starting the API.
 
-Create the application database and configure the required tables and constraints before starting the API. The integration tests require a separate test database named `utility_payment_test`, configured with the expected schema.
+Integration tests require a separate test database named `utility_payment_test`, configured with the expected schema.
 
-**Security:** Never commit your `.env` file, database credentials, or real JWT secrets to GitHub.
+**Security:** Never commit `.env`, database credentials, or real secrets to GitHub.
 
 ### 4. Start the Server
 
@@ -112,6 +147,8 @@ Swagger API documentation:
 | GET | `/payments/:id` | Retrieve a payment by ID | Required |
 | PATCH | `/payments/:id` | Update a pending payment | Required |
 
+For the complete request and response schemas, refer to the Swagger documentation at `/api-docs`.
+
 ## Authentication
 
 After logging in, the API returns a JWT.
@@ -146,7 +183,7 @@ Request body:
 }
 ```
 
-Successful response — `201 Created`:
+Example response — `201 Created`:
 
 ```json
 {
@@ -225,6 +262,16 @@ Possible responses:
 
 Only the authenticated user's payments can be updated, and only while their status is `pending`.
 
+## Database Design
+
+The API uses PostgreSQL tables to store user information, payments, and payment status history.
+
+The `payments` table stores payment details, status, timestamps, and the simulated processing result.
+
+The `payment_status_history` table records each status transition with the payment ID, previous status, new status, and change timestamp.
+
+Database transactions are used when changing payment status and recording its history, helping prevent inconsistent state transitions.
+
 ## Validation Rules
 
 ### Creating Payments
@@ -251,7 +298,7 @@ npm test
 
 The project includes unit tests and PostgreSQL integration tests using Jest and Supertest.
 
-The integration tests require a dedicated test database. The test setup explicitly checks `TEST_DB_NAME` to help prevent running integration tests against a non-test database.
+The integration tests use a dedicated test database. The test setup checks `TEST_DB_NAME` to help prevent tests from running against an unintended database.
 
 Keep test data separate from application data.
 
@@ -285,6 +332,8 @@ The project also contains Jest test files and Swagger/OpenAPI configuration.
 - Add pagination and filtering for payment records.
 - Introduce centralized error handling and consistent error responses.
 - Add rate limiting and further security hardening.
+- Add database migrations for schema changes.
+- Improve graceful shutdown handling for background recovery tasks.
 - Expand integration coverage for authentication and authorization edge cases.
 
 ## Author

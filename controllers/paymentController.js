@@ -83,14 +83,14 @@ const updatePayment = async (req, res) => {
 const processPayment = async (req, res) => {
     const id = req.params.id;
     const userId = req.user.id;
-
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) return res.status(400).json({message: 'Invalid payment ID'});
     try {
         const startResult = await paymentService.startPaymentProcessing(id, userId);
 
         if (startResult.type === 'not_found') return res.status(404).json({message: 'Payment not found'});
         if (startResult.type === 'not_pending') return res.status(409).json({message: 'Payment cannot be processed in its current status'});
 
-        const newStatus = paymentService.simulatePaymentResult();
+        const newStatus = startResult.payment.simulated_result;
         const finishResult = await paymentService.finishPaymentProcessing(id, userId, newStatus);
 
         if (finishResult.type === 'not_processing') return res.status(409).json({message: 'Payment is no longer processing'});
